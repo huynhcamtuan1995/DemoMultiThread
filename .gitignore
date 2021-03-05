@@ -1,3 +1,9 @@
 ﻿ConsoleApp1/bin
 ConsoleApp1/obj
 .vs
+ConsoleThread/bin
+ConsoleThread/obj
+FakeServer/bin
+FakeServer/obj
+WebThread/bin
+WebThread/obj

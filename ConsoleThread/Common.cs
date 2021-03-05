@@ -4,7 +4,7 @@ using System.IO;
 using System.Text;
 using Newtonsoft.Json;
 
-namespace ConsoleApp1
+namespace ConsoleThread
 {
     public class Common
     {
