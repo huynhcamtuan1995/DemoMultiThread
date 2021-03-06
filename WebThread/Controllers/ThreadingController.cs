@@ -28,26 +28,30 @@ namespace WebThread.Controllers
 
             for (int i = 0; i < thread; i++)
             {
-                string name = $"{Guid.NewGuid().ToString("N")}_{DateTime.Now.ToString("HHmmss")}";
                 ThreadModel model = new ThreadModel();
+                string name = $"{Guid.NewGuid().ToString("N")}_{DateTime.Now.ToString("HHmmss")}";
                 model.Name = name;
                 model.Number = i;
 
                 ThreadTest.AddThreadRequest(model);
             }
 
-            ThreadTest.StartThreads();
-
-            ThreadTest.autoResetEvent.WaitOne();
             return boolArr;
         }
 
 
         [HttpGet]
-        public bool SendSingleRequest()
+        public ThreadResponse SendSingleRequest()
         {
+            ThreadModel model = new ThreadModel();
+            string name = $"{Guid.NewGuid().ToString("N")}_{DateTime.Now.ToString("HHmmss")}";
+            model.Name = name;
 
-            return true;
+            ThreadTest.AddThreadRequest(model);
+
+            model.Event.WaitOne();
+
+            return model.Response;
         }
     }
 }

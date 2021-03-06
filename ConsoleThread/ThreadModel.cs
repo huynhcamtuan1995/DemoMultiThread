@@ -12,11 +12,18 @@ namespace ConsoleThread
         public DateTime CreateAt { get; set; } = DateTime.Now;
         public int Sleep { get; set; }
 
-        public AutoResetEvent Event = new AutoResetEvent(false);
+        public ThreadResponse Response { get; set; }
 
         public bool IsExpire()
         {
             return CreateAt.AddSeconds(30) <= DateTime.Now;
         }
+        public AutoResetEvent Event = new AutoResetEvent(false);
+    }
+
+    public class ThreadResponse
+    {
+        public int Status { get; set; }
+        public string Message { get; set; }
     }
 }

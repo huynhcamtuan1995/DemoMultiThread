@@ -19,8 +19,7 @@ namespace ConsoleThread
         private static ConcurrentDictionary<string, ThreadModel> concurrentDictionary = new ConcurrentDictionary<string, ThreadModel>();
         private static ConcurrentQueue<string> concurrentQueue = new ConcurrentQueue<string>();
         private static Semaphore semaphore = new Semaphore(10, 10, "MySemaphore");
-
-        public static AutoResetEvent autoResetEvent = new AutoResetEvent(false);
+        private static AutoResetEvent queueEvent = new AutoResetEvent(false);
 
         internal static Timer TimerNotification;
 
@@ -33,14 +32,38 @@ namespace ConsoleThread
         public static void TimerRun()
         {
             TimerNotification = new Timer(1000 * 5);
-            TimerNotification.Elapsed += ProcessOnExecute;
+            TimerNotification.Elapsed += ProcessOnRemoveExpired;
             TimerNotification.AutoReset = true;
             TimerNotification.Start();
         }
 
-        private static void ProcessOnExecute(object source, ElapsedEventArgs e)
+        /// <summary>
+        /// Remove expired request
+        /// </summary>
+        /// <param name="source"></param>
+        /// <param name="e"></param>
+        private static void ProcessOnRemoveExpired(object source, ElapsedEventArgs e)
         {
+            //get all expired request in Dictionary store
+            var expiredModels = concurrentDictionary.Values
+                .Where(x => x.IsExpire())
+                .OrderBy(x => x.CreateAt);
 
+            foreach (var model in expiredModels)
+            {
+                //set value for expire item
+                if (model.Response == null)
+                {
+                    //reponse stats reponse to timeout or somethign...
+                    //then set request event to continutes reponse 
+                    model.Response = new ThreadResponse()
+                    {
+                        Status = 408,
+                        Message = "Timeout"
+                    };
+                }
+                model.Event.Set();
+            }
         }
 
         public static void StartThreads()
@@ -49,27 +72,31 @@ namespace ConsoleThread
             {
                 if (concurrentQueue.IsEmpty)
                 {
-                    break;
+                    queueEvent.WaitOne();
                 }
 
-                concurrentQueue.TryDequeue(out string modelName);
-                if (concurrentDictionary.TryGetValue(modelName, out ThreadModel model))
+                if (concurrentQueue.TryDequeue(out string modelName)
+                    && concurrentDictionary.TryRemove(modelName, out ThreadModel model))
                 {
                     Thread t = CreateThread(semaphore,
-                   () => ProgressAsync(model));
+                        () => ProgressAsync(model));
 
                     t.Start();
                 }
-
-                //model.Event.WaitOne();
             }
 
         }
 
         public static bool AddThreadRequest(ThreadModel model)
         {
-            concurrentQueue.Enqueue(model.Name);
             concurrentDictionary.TryAdd(model.Name, model);
+
+            concurrentQueue.Enqueue(model.Name);
+            if (!concurrentQueue.IsEmpty)
+            {
+                queueEvent.Set();
+            }
+
             return true;
         }
 
@@ -103,31 +130,28 @@ namespace ConsoleThread
                     client.BaseAddress = new Uri("https://localhost:5069");
 
                     var response = client.GetAsync($"WeatherForecast/ReceiveRequest/{randomSleep}").GetAwaiter().GetResult();
+
+                    //set reponse
+                    model.Response = new ThreadResponse()
+                    {
+                        Status = 200,
+                        Message = "Have data"
+                    };
                 }
 
-                //model.Event.Set();
-                concurrentDictionary.TryRemove(model.Name, out _);
-                Console.WriteLine($"         {model.Number} Sent");
+                model.Event.Set();
                 //Common.WriteLog(model);
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error {model.Number}--------------------XXXXXX");
+                Console.WriteLine($"Error {model.Number}-------------------- {ex.Message}");
                 //Log ex
             }
             finally
             {
-
                 int availableThreads = semaphore.Release();
+                Console.WriteLine($"                        ---> AvailableThreads:{availableThreads} || Queue:{concurrentQueue.Count()} || Dictiondary:{concurrentDictionary.Count()}");
 
-                Console.WriteLine($"                            availableThreads:{availableThreads}");
-                Console.WriteLine($"                 Queue:{concurrentQueue.Count()}");
-                Console.WriteLine($"                 Dictiondary:{concurrentDictionary.Count()}");
-
-                if (concurrentDictionary.IsEmpty)
-                {
-                    autoResetEvent.Set();
-                }
             }
 
         }
