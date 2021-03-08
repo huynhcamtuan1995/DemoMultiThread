@@ -25,8 +25,9 @@ namespace ConsoleThread
 
         static ThreadTest()
         {
-            //TimerRun();
-            //StartThreads();
+            TimerRun();
+
+            new Thread(() => StartThreads()).Start();
         }
 
         public static void TimerRun()
@@ -45,24 +46,29 @@ namespace ConsoleThread
         private static void ProcessOnRemoveExpired(object source, ElapsedEventArgs e)
         {
             //get all expired request in Dictionary store
-            var expiredModels = concurrentDictionary.Values
+            List<string> expiredModels = concurrentDictionary.Values
                 .Where(x => x.IsExpire())
-                .OrderBy(x => x.CreateAt);
+                .OrderBy(x => x.CreateAt)
+                .Select(x => x.Name)
+                .ToList();
 
-            foreach (var model in expiredModels)
+            foreach (string modelKey in expiredModels)
             {
-                //set value for expire item
-                if (model.Response == null)
+                if (concurrentDictionary.TryRemove(modelKey, out ThreadModel model))
                 {
-                    //reponse stats reponse to timeout or somethign...
-                    //then set request event to continutes reponse 
-                    model.Response = new ThreadResponse()
+                    //set value for expire item
+                    if (model.Response == null)
                     {
-                        Status = 408,
-                        Message = "Timeout"
-                    };
+                        //reponse stats reponse to timeout or somethign...
+                        //then set request event to continutes reponse 
+                        model.Response = new ThreadResponse()
+                        {
+                            Status = 408,
+                            Message = "Timeout"
+                        };
+                    }
+                    model.Event.Set();
                 }
-                model.Event.Set();
             }
         }
 
