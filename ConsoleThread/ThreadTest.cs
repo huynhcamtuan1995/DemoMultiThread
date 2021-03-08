@@ -61,11 +61,11 @@ namespace ConsoleThread
                     {
                         //reponse stats reponse to timeout or somethign...
                         //then set request event to continutes reponse 
-                        model.Response = new ThreadResponse()
-                        {
-                            Status = 408,
-                            Message = "Timeout"
-                        };
+                        ThreadResponse response = new ThreadResponse();
+                        response.Status = 408;
+                        response.Message = "Timeout";
+
+                        model.Response = response;
                     }
                     model.Event.Set();
                 }
@@ -95,13 +95,13 @@ namespace ConsoleThread
 
         public static bool AddThreadRequest(ThreadModel model)
         {
-            concurrentDictionary.TryAdd(model.Name, model);
+            if (!concurrentDictionary.TryAdd(model.Name, model))
+            {
+                return false;
+            }
 
             concurrentQueue.Enqueue(model.Name);
-            if (!concurrentQueue.IsEmpty)
-            {
-                queueEvent.Set();
-            }
+            queueEvent.Set();
 
             return true;
         }

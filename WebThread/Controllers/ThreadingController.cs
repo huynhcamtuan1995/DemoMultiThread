@@ -33,7 +33,14 @@ namespace WebThread.Controllers
                 model.Name = name;
                 model.Number = i;
 
-                ThreadTest.AddThreadRequest(model);
+                if (!ThreadTest.AddThreadRequest(model))
+                {
+                    ThreadResponse response = new ThreadResponse();
+                    response.Status = 400;
+                    response.Message = "Bad Request";
+
+                    return new bool[] { false };
+                }
             }
 
             return boolArr;
@@ -47,7 +54,15 @@ namespace WebThread.Controllers
             string name = $"{Guid.NewGuid().ToString("N")}_{DateTime.Now.ToString("HHmmss")}";
             model.Name = name;
 
-            ThreadTest.AddThreadRequest(model);
+            //if cannot add request -> response bad request
+            if (!ThreadTest.AddThreadRequest(model))
+            {
+                ThreadResponse response = new ThreadResponse();
+                response.Status = 400;
+                response.Message = "Bad Request";
+
+                return response;
+            }
 
             model.Event.WaitOne();
 
