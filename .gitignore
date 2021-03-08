@@ -7,3 +7,6 @@ FakeServer/bin
 FakeServer/obj
 WebThread/bin
 WebThread/obj
+MultipleThreading/bin
+MultipleThreading/obj
+packages

@@ -1,10 +1,8 @@
-﻿using ConsoleThread;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
+using ProcessThreading;
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 
 namespace WebThread.Controllers
 {
@@ -33,7 +31,7 @@ namespace WebThread.Controllers
                 model.Name = name;
                 model.Number = i;
 
-                if (!ThreadTest.AddThreadRequest(model))
+                if (!QueueThread.AddThreadRequest(model))
                 {
                     ThreadResponse response = new ThreadResponse();
                     response.Status = 400;
@@ -55,7 +53,7 @@ namespace WebThread.Controllers
             model.Name = name;
 
             //if cannot add request -> response bad request
-            if (!ThreadTest.AddThreadRequest(model))
+            if (!QueueThread.AddThreadRequest(model))
             {
                 ThreadResponse response = new ThreadResponse();
                 response.Status = 400;

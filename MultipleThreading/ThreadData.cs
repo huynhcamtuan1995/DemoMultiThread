@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using System.Threading;
 
-namespace ConsoleThread
+namespace ProcessThreading
 {
     public class ThreadModel
     {

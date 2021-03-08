@@ -1,20 +1,16 @@
-﻿using ConsoleThread;
-using System;
+﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
-using System.Net.Http.Headers;
-using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
 using System.Timers;
 using Timer = System.Timers.Timer;
 
-namespace ConsoleThread
+namespace ProcessThreading
 {
 
-    public class ThreadTest
+    public class QueueThread
     {
         private static ConcurrentDictionary<string, ThreadModel> concurrentDictionary = new ConcurrentDictionary<string, ThreadModel>();
         private static ConcurrentQueue<string> concurrentQueue = new ConcurrentQueue<string>();
@@ -23,7 +19,7 @@ namespace ConsoleThread
 
         internal static Timer TimerNotification;
 
-        static ThreadTest()
+        static QueueThread()
         {
             TimerRun();
 

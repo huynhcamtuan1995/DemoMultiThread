@@ -4,7 +4,7 @@ using System.IO;
 using System.Text;
 using Newtonsoft.Json;
 
-namespace ConsoleThread
+namespace ProcessThreading
 {
     public class Common
     {
