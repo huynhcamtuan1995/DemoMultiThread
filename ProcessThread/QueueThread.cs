@@ -134,28 +134,35 @@ namespace ProcessThread
         {
             try
             {
-                //StringContent content = new StringContent(CreateJsonBody(data, function, requestID), Encoding.UTF8, "application/json");
-                //HttpResponseMessage responseTask;
-                //using (HttpClient client = new HttpClient())
+                //using (HttpClientHandler handler = new HttpClientHandler())
                 //{
-                //    client.BaseAddress = new Uri(gatewayOptions.Url);
-                //    client.DefaultRequestHeaders.Accept.Add(
-                //        new MediaTypeWithQualityHeaderValue("application/json"));
-                //    client.DefaultRequestHeaders.Add("Signature", signature);
-                //    client.DefaultRequestHeaders.Add("Authorization", token);
-                //    responseTask = await client.PostAsync("", content);
+                //    handler.CookieContainer = new CookieContainer();
+                //    handler.CookieContainer.Add(baseAddress, new Cookie("name", "value")); // Adding a Cookie
+                //    using (var client = new HttpClient(handler) {BaseAddress = baseAddress})
+                //    {
+                //        StringContent content = new StringContent(CreateJsonBody(data, function, requestID),
+                //            Encoding.UTF8, "application/json");
+                //        client.BaseAddress = new Uri(gatewayOptions.Url);
+                //        client.DefaultRequestHeaders.Accept.Add(
+                //            new MediaTypeWithQualityHeaderValue("application/json"));
+                //        client.DefaultRequestHeaders.Add("Signature", signature);
+                //        client.DefaultRequestHeaders.Add("Authorization", token);
+                //        HttpResponseMessage responseTask = await client.PostAsync("", content);
+                //    }
                 //}
 
                 int randomSleep = new Random().Next(0, 10);
 
                 Console.WriteLine($"{model.Number} sleep {randomSleep * 1000}");
+
+                Uri baseAddress = new Uri("https://localhost:5069");
                 using (HttpClient client = new HttpClient())
                 {
-                    client.BaseAddress = new Uri("https://localhost:5069");
+                    client.BaseAddress = baseAddress;
 
-                    var response = client.GetAsync($"WeatherForecast/ReceiveRequest/{randomSleep}").GetAwaiter().GetResult();
+                    HttpResponseMessage response = client.GetAsync($"WeatherForecast/ReceiveRequest/{randomSleep}").GetAwaiter().GetResult();
 
-                    //set reponse
+                    //set response
                     model.Response = new ThreadResponse()
                     {
                         Status = 200,
@@ -175,9 +182,7 @@ namespace ProcessThread
             {
                 int availableThreads = Semaphore.Release();
                 Console.WriteLine($"                        ---> AvailableThreads:{availableThreads} || Queue:{ConcurrentQueue.Count()} || Dictiondary:{ConcurrentDictionary.Count()}");
-
             }
-
         }
     }
 }

@@ -1,8 +1,9 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
-using ProcessThreading;
+using ProcessThread;
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace WebThread.Controllers
 {
@@ -20,7 +21,7 @@ namespace WebThread.Controllers
         }
 
         [HttpGet("{thread}")]
-        public IEnumerable<bool> SendMultipleRequest(int thread)
+        public async Task<IEnumerable<bool>> SendMultipleRequestAsync(int thread)
         {
             bool[] boolArr = new bool[] { };
 
@@ -46,7 +47,7 @@ namespace WebThread.Controllers
 
 
         [HttpGet]
-        public ThreadResponse SendSingleRequest()
+        public async Task<ThreadResponse> SendSingleRequestAsync()
         {
             ThreadModel model = new ThreadModel();
             string name = $"{Guid.NewGuid().ToString("N")}_{DateTime.Now.ToString("HHmmss")}";

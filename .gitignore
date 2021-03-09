@@ -13,3 +13,5 @@ packages
 MultipleThreading/Properties
 ProcessThread/obj
 ScheduleTask/obj
+ProcessThread/bin
+ScheduleTask/bin

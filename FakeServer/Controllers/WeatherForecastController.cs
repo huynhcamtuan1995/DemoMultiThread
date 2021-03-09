@@ -1,7 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -25,7 +24,7 @@ namespace FakeServer.Controllers
         }
 
         [HttpGet("{i}")]
-        public async Task<WeatherForecast> ReceiveRequest(int i)
+        public async Task<WeatherForecast> ReceiveRequestAsync(int i)
         {
             var rng = new Random();
 
@@ -39,7 +38,6 @@ namespace FakeServer.Controllers
                 TemperatureC = rng.Next(-20, 55),
                 Summary = Summaries[rng.Next(Summaries.Length)]
             }).FirstOrDefault();
-           
         }
     }
 }
