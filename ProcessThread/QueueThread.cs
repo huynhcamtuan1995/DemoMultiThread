@@ -7,17 +7,16 @@ using System.Threading;
 using System.Timers;
 using Timer = System.Timers.Timer;
 
-namespace ProcessThreading
+namespace ProcessThread
 {
-
     public class QueueThread
     {
-        private static ConcurrentDictionary<string, ThreadModel> concurrentDictionary = new ConcurrentDictionary<string, ThreadModel>();
-        private static ConcurrentQueue<string> concurrentQueue = new ConcurrentQueue<string>();
-        private static Semaphore semaphore = new Semaphore(10, 10, "MySemaphore");
-        private static AutoResetEvent queueEvent = new AutoResetEvent(false);
+        private static ConcurrentDictionary<string, ThreadModel> ConcurrentDictionary = new ConcurrentDictionary<string, ThreadModel>();
+        private static ConcurrentQueue<string> ConcurrentQueue = new ConcurrentQueue<string>();
+        private static Semaphore Semaphore = new Semaphore(10, 10, "MySemaphore");
+        private static AutoResetEvent QueueEvent = new AutoResetEvent(false);
 
-        internal static Timer TimerNotification;
+        internal static Timer TimerExpired;
 
         static QueueThread()
         {
@@ -26,12 +25,15 @@ namespace ProcessThreading
             new Thread(() => StartThreads()).Start();
         }
 
+        /// <summary>
+        /// Timer to run every 5s, to progress expired request
+        /// </summary>
         public static void TimerRun()
         {
-            TimerNotification = new Timer(1000 * 5);
-            TimerNotification.Elapsed += ProcessOnRemoveExpired;
-            TimerNotification.AutoReset = true;
-            TimerNotification.Start();
+            TimerExpired = new Timer(1000 * 5);
+            TimerExpired.Elapsed += ProcessOnRemoveExpired;
+            TimerExpired.AutoReset = true;
+            TimerExpired.Start();
         }
 
         /// <summary>
@@ -42,7 +44,7 @@ namespace ProcessThreading
         private static void ProcessOnRemoveExpired(object source, ElapsedEventArgs e)
         {
             //get all expired request in Dictionary store
-            List<string> expiredModels = concurrentDictionary.Values
+            List<string> expiredModels = ConcurrentDictionary.Values
                 .Where(x => x.IsExpire())
                 .OrderBy(x => x.CreateAt)
                 .Select(x => x.Name)
@@ -50,7 +52,7 @@ namespace ProcessThreading
 
             foreach (string modelKey in expiredModels)
             {
-                if (concurrentDictionary.TryRemove(modelKey, out ThreadModel model))
+                if (ConcurrentDictionary.TryRemove(modelKey, out ThreadModel model))
                 {
                     //set value for expire item
                     if (model.Response == null)
@@ -68,19 +70,24 @@ namespace ProcessThreading
             }
         }
 
+        /// <summary>
+        /// isolate thread to running thread
+        /// </summary>
         public static void StartThreads()
         {
             while (true)
             {
-                if (concurrentQueue.IsEmpty)
+                if (ConcurrentQueue.IsEmpty)
                 {
-                    queueEvent.WaitOne();
+                    //make this thread sleep while request in queue empty
+                    QueueEvent.WaitOne();
                 }
 
-                if (concurrentQueue.TryDequeue(out string modelName)
-                    && concurrentDictionary.TryRemove(modelName, out ThreadModel model))
+                //dequeue from queue and progress 
+                if (ConcurrentQueue.TryDequeue(out string modelName)
+                    && ConcurrentDictionary.TryRemove(modelName, out ThreadModel model))
                 {
-                    Thread t = CreateThread(semaphore,
+                    Thread t = CreateThread(Semaphore,
                         () => ProgressAsync(model));
 
                     t.Start();
@@ -89,25 +96,40 @@ namespace ProcessThreading
 
         }
 
+        /// <summary>
+        /// adding new request to queue
+        /// </summary>
+        /// <param name="model"></param>
+        /// <returns></returns>
         public static bool AddThreadRequest(ThreadModel model)
         {
-            if (!concurrentDictionary.TryAdd(model.Name, model))
+            if (!ConcurrentDictionary.TryAdd(model.Name, model))
             {
                 return false;
             }
 
-            concurrentQueue.Enqueue(model.Name);
-            queueEvent.Set();
+            ConcurrentQueue.Enqueue(model.Name);
+            QueueEvent.Set();
 
             return true;
         }
 
+        /// <summary>
+        ///  managed max thread to progress by semaphore
+        /// </summary>
+        /// <param name="semaphore"></param>
+        /// <param name="threadStart"></param>
+        /// <returns></returns>
         public static Thread CreateThread(Semaphore semaphore, ThreadStart threadStart)
         {
             semaphore.WaitOne();
             return new Thread(threadStart);
         }
 
+        /// <summary>
+        /// function process request
+        /// </summary>
+        /// <param name="model"></param>
         private static void ProgressAsync(ThreadModel model)
         {
             try
@@ -151,8 +173,8 @@ namespace ProcessThreading
             }
             finally
             {
-                int availableThreads = semaphore.Release();
-                Console.WriteLine($"                        ---> AvailableThreads:{availableThreads} || Queue:{concurrentQueue.Count()} || Dictiondary:{concurrentDictionary.Count()}");
+                int availableThreads = Semaphore.Release();
+                Console.WriteLine($"                        ---> AvailableThreads:{availableThreads} || Queue:{ConcurrentQueue.Count()} || Dictiondary:{ConcurrentDictionary.Count()}");
 
             }
 

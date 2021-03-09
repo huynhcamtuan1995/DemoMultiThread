@@ -3,8 +3,11 @@ using System.Collections.Generic;
 using System.Text;
 using System.Threading;
 
-namespace ProcessThreading
+namespace ProcessThread
 {
+    /// <summary>
+    /// Thread data in progress
+    /// </summary>
     public class ThreadModel
     {
         public string Name { get; set; }
@@ -21,6 +24,9 @@ namespace ProcessThreading
         public AutoResetEvent Event = new AutoResetEvent(false);
     }
 
+    /// <summary>
+    /// Thread result Response
+    /// </summary>
     public class ThreadResponse
     {
         public int Status { get; set; }

@@ -5,7 +5,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\MultipleThreading\ProcessThreading.csproj" />
+    <ProjectReference Include="..\ProcessThread\ProcessThread.csproj" />
   </ItemGroup>
 
 

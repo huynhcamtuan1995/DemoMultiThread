@@ -1,0 +1,99 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Threading;
+using System.Timers;
+using Timer = System.Timers.Timer;
+
+namespace ScheduleTask
+{
+    public class JobSchedule
+    {
+        private static readonly Semaphore ScheduleSemaphore = new Semaphore(1, 10);
+        internal static Timer ScheduleTimer;
+        static JobSchedule()
+        {
+            TimerRun();
+        }
+
+        public static void TimerRun()
+        {
+            ScheduleTimer = new Timer(1000 * 10);
+            ScheduleTimer.Elapsed += ProcessOnExecute;
+            ScheduleTimer.AutoReset = true;
+            ScheduleTimer.Start();
+        }
+
+        /// <summary>
+        /// timer run every 5s, to progress to empty task to break
+        /// </summary>
+        /// <param name="source"></param>
+        /// <param name="e"></param>
+        private static void ProcessOnExecute(object source, ElapsedEventArgs e)
+        {
+            ScheduleTimer.Stop();
+
+            try
+            {
+            Next:
+                //select top in list (request or db) to process
+                //where some condition
+
+                List<string> listRequests = new List<string>() { "string1", "string2", "string3" };
+                if (listRequests.Count == 0)
+                {
+                    goto End;
+                }
+
+                foreach (string lead in listRequests)
+                {
+                    // Set Stage is Inprogress
+                    //UpdateState(lead, LeadStateEnum.Inprogress);
+
+                    // Split Thread
+                    Thread thread = CreateThread(
+                        ScheduleSemaphore,
+                        () =>
+                        {
+                            ProcessTask(lead);
+                        });
+                    thread.Start();
+                }
+                //repeat 
+                goto Next;
+
+            End:
+                return;
+            }
+            catch (Exception exception)
+            {
+                //log ex
+            }
+            finally
+            {
+                ScheduleTimer.Start();
+            }
+        }
+
+        /// <summary>
+        /// managed max thread to progress by semaphore
+        /// </summary>
+        /// <param name="semaphore"></param>
+        /// <param name="threadStart"></param>
+        /// <returns></returns>
+        public static Thread CreateThread(Semaphore semaphore, ThreadStart threadStart)
+        {
+            semaphore.WaitOne();
+            return new Thread(threadStart);
+        }
+
+        /// <summary>
+        /// function process task
+        /// </summary>
+        /// <param name="model"></param>
+        private static void ProcessTask(string model)
+        {
+
+        }
+    }
+
+}

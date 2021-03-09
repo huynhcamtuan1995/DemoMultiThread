@@ -10,3 +10,6 @@ WebThread/obj
 MultipleThreading/bin
 MultipleThreading/obj
 packages
+MultipleThreading/Properties
+ProcessThread/obj
+ScheduleTask/obj
