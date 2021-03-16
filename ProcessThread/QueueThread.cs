@@ -22,6 +22,7 @@ namespace ProcessThread
         {
             TimerRun();
 
+            //isolate thread to run thread
             new Thread(() => StartThreads()).Start();
         }
 
@@ -43,30 +44,56 @@ namespace ProcessThread
         /// <param name="e"></param>
         private static void ProcessOnRemoveExpired(object source, ElapsedEventArgs e)
         {
-            //get all expired request in Dictionary store
-            List<string> expiredModels = ConcurrentDictionary.Values
-                .Where(x => x.IsExpire())
-                .OrderBy(x => x.CreateAt)
-                .Select(x => x.Name)
-                .ToList();
-
-            foreach (string modelKey in expiredModels)
+            //stop the timer to run until end of request
+            TimerExpired.Stop();
+            try
             {
-                if (ConcurrentDictionary.TryRemove(modelKey, out ThreadModel model))
-                {
-                    //set value for expire item
-                    if (model.Response == null)
-                    {
-                        //reponse stats reponse to timeout or somethign...
-                        //then set request event to continutes reponse 
-                        ThreadResponse response = new ThreadResponse();
-                        response.Status = 408;
-                        response.Message = "Timeout";
+                Next:
+                //get all expired request in Dictionary store
+                List<string> expiredRequest = ConcurrentDictionary.Values
+                    .Where(x => x.IsExpire())
+                    .OrderBy(x => x.CreateAt)
+                    .Select(x => x.Name)
+                    .ToList();
 
-                        model.Response = response;
-                    }
-                    model.Event.Set();
+                if (expiredRequest.Count() == 0)
+                {
+                    goto End;
                 }
+
+                foreach (string modelKey in expiredRequest)
+                {
+                    if (ConcurrentDictionary.TryRemove(modelKey, out ThreadModel model))
+                    {
+                        //set value for expire item
+                        if (model.Response == null)
+                        {
+                            //reponse stats reponse to timeout or somethign...
+                            //then set request event to continutes reponse 
+                            ThreadResponse response = new ThreadResponse();
+                            response.Status = 408;
+                            response.Message = "Timeout";
+
+                            model.Response = response;
+                        }
+
+                        model.Event.Set();
+                    }
+                }
+                //repeat
+                goto Next;
+
+                End:
+                return;
+            }
+            catch (Exception ex)
+            {
+                //log ex
+            }
+            finally
+            {
+                //start timer after stop
+                TimerExpired.Start();
             }
         }
 

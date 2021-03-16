@@ -15,6 +15,9 @@ namespace ScheduleTask
             TimerRun();
         }
 
+        /// <summary>
+        /// starting timer
+        /// </summary>
         public static void TimerRun()
         {
             ScheduleTimer = new Timer(1000 * 10);
@@ -30,15 +33,16 @@ namespace ScheduleTask
         /// <param name="e"></param>
         private static void ProcessOnExecute(object source, ElapsedEventArgs e)
         {
+            //stop to run until end of list data
             ScheduleTimer.Stop();
 
             try
             {
-            Next:
+                Next:
                 //select top in list (request or db) to process
                 //where some condition
 
-                List<string> listRequests = new List<string>() { "string1", "string2", "string3" };
+                List<string> listRequests = new List<string>();
                 if (listRequests.Count == 0)
                 {
                     goto End;
@@ -61,7 +65,7 @@ namespace ScheduleTask
                 //repeat 
                 goto Next;
 
-            End:
+                End:
                 return;
             }
             catch (Exception exception)
@@ -70,6 +74,7 @@ namespace ScheduleTask
             }
             finally
             {
+                //start timer after stop
                 ScheduleTimer.Start();
             }
         }
@@ -92,7 +97,7 @@ namespace ScheduleTask
         /// <param name="model"></param>
         private static void ProcessTask(string model)
         {
-
+            //Do process model
         }
     }
 
