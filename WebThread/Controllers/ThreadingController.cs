@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using ProcessThread;
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace WebThread.Controllers
@@ -47,11 +48,12 @@ namespace WebThread.Controllers
 
 
         [HttpGet]
-        public async Task<ThreadResponse> SendSingleRequestAsync()
+        public async Task<ThreadResponse> SendSingleRequestAsync(CancellationToken cancelToken)
         {
             ThreadModel model = new ThreadModel();
             string name = $"{Guid.NewGuid().ToString("N")}_{DateTime.Now.ToString("HHmmss")}";
             model.Name = name;
+            model.CancelToken = cancelToken;
 
             //if cannot add request -> response bad request
             if (!QueueThread.AddThreadRequest(model))

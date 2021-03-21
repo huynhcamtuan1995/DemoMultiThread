@@ -11,11 +11,33 @@ namespace ProcessThread
 {
     public class QueueThread
     {
+        /// <summary>
+        /// Name: DictionaryRequest
+        /// Stored Request model wait for progress
+        /// </summary>
         private static ConcurrentDictionary<string, ThreadModel> ConcurrentDictionary = new ConcurrentDictionary<string, ThreadModel>();
+
+        /// <summary>
+        /// Name: QueueRequest
+        /// Stored Request key wait for progress
+        /// </summary>
         private static ConcurrentQueue<string> ConcurrentQueue = new ConcurrentQueue<string>();
-        private static Semaphore Semaphore = new Semaphore(10, 10, "MySemaphore");
+
+        /// <summary>
+        /// Semaphore to limit threads join in progress
+        /// Keep application not out of resource
+        /// </summary>
+        private static SemaphoreSlim Semaphore = new SemaphoreSlim(50, 50);
+        //private static Semaphore Semaphore = new Semaphore(10, 10, "MySemaphore");
+
+        /// <summary>
+        /// event status to wakeup isolate running thread [StartThreads()] when QueueRequest is empty 
+        /// </summary>
         private static AutoResetEvent QueueEvent = new AutoResetEvent(false);
 
+        /// <summary>
+        /// 
+        /// </summary>
         internal static Timer TimerExpired;
 
         static QueueThread()
@@ -114,10 +136,14 @@ namespace ProcessThread
                 if (ConcurrentQueue.TryDequeue(out string modelName)
                     && ConcurrentDictionary.TryRemove(modelName, out ThreadModel model))
                 {
-                    Thread t = CreateThread(Semaphore,
+                    Thread t = CreateThread(
+                        Semaphore,
                         () => ProgressAsync(model));
 
                     t.Start();
+
+                    //register cancellation to cancel running thread
+                    model.CancelToken.Register(() => t.Interrupt());
                 }
             }
 
@@ -147,9 +173,9 @@ namespace ProcessThread
         /// <param name="semaphore"></param>
         /// <param name="threadStart"></param>
         /// <returns></returns>
-        public static Thread CreateThread(Semaphore semaphore, ThreadStart threadStart)
+        public static Thread CreateThread(SemaphoreSlim semaphore, ThreadStart threadStart)
         {
-            semaphore.WaitOne();
+            semaphore.Wait();
             return new Thread(threadStart);
         }
 
@@ -187,7 +213,9 @@ namespace ProcessThread
                 {
                     client.BaseAddress = baseAddress;
 
-                    HttpResponseMessage response = client.GetAsync($"WeatherForecast/ReceiveRequest/{randomSleep}").GetAwaiter().GetResult();
+                    HttpResponseMessage response = client.GetAsync($"WeatherForecast/ReceiveRequest/{randomSleep}")
+                        .GetAwaiter()
+                        .GetResult();
 
                     //set response
                     model.Response = new ThreadResponse()
@@ -197,16 +225,16 @@ namespace ProcessThread
                     };
                 }
 
-                model.Event.Set();
                 //Common.WriteLog(model);
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error {model.Number}-------------------- {ex.Message}");
+                Console.WriteLine($"Error {model.Number}-------------------- {ex.Message} {ex.InnerException}");
                 //Log ex
             }
             finally
             {
+                model.Event.Set();
                 int availableThreads = Semaphore.Release();
                 Console.WriteLine($"                        ---> AvailableThreads:{availableThreads} || Queue:{ConcurrentQueue.Count()} || Dictiondary:{ConcurrentDictionary.Count()}");
             }
