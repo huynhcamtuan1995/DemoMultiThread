@@ -5,6 +5,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Threading;
 using System.Timers;
+using Microsoft.Extensions.Logging;
 using Timer = System.Timers.Timer;
 
 namespace ProcessThread
@@ -36,13 +37,25 @@ namespace ProcessThread
         private static AutoResetEvent QueueEvent = new AutoResetEvent(false);
 
         /// <summary>
-        /// 
+        /// Timer to remove expired request
         /// </summary>
-        internal static Timer TimerExpired;
+        internal static Timer TimerExpire;
+
+        /// <summary>
+        /// Log factory
+        /// </summary>
+        private static readonly ILoggerFactory _loggerFactory = new LoggerFactory();
+
+        /// <summary>
+        /// Logger
+        /// </summary>
+        private static readonly ILogger _logger;
 
         static QueueThread()
         {
-            TimerRun();
+            _logger = _loggerFactory.CreateLogger<QueueThread>();
+
+            TimerExpireRun();
 
             //isolate thread to run thread
             new Thread(() => StartThreads()).Start();
@@ -51,12 +64,12 @@ namespace ProcessThread
         /// <summary>
         /// Timer to run every 5s, to progress expired request
         /// </summary>
-        public static void TimerRun()
+        public static void TimerExpireRun()
         {
-            TimerExpired = new Timer(1000 * 5);
-            TimerExpired.Elapsed += ProcessOnRemoveExpired;
-            TimerExpired.AutoReset = true;
-            TimerExpired.Start();
+            TimerExpire = new Timer(1000 * 5);
+            TimerExpire.Elapsed += ProcessOnRemoveExpire;
+            TimerExpire.AutoReset = true;
+            TimerExpire.Start();
         }
 
         /// <summary>
@@ -64,10 +77,10 @@ namespace ProcessThread
         /// </summary>
         /// <param name="source"></param>
         /// <param name="e"></param>
-        private static void ProcessOnRemoveExpired(object source, ElapsedEventArgs e)
+        private static void ProcessOnRemoveExpire(object source, ElapsedEventArgs e)
         {
             //stop the timer to run until end of request
-            TimerExpired.Stop();
+            TimerExpire.Stop();
             try
             {
                 Next:
@@ -111,11 +124,12 @@ namespace ProcessThread
             catch (Exception ex)
             {
                 //log ex
+                _logger.LogError($"Error ------------------------------- {ex.Message} {ex.InnerException}");
             }
             finally
             {
                 //start timer after stop
-                TimerExpired.Start();
+                TimerExpire.Start();
             }
         }
 
@@ -208,6 +222,9 @@ namespace ProcessThread
 
                 Console.WriteLine($"{model.Number} sleep {randomSleep * 1000}");
 
+                //log
+                _logger.LogInformation($"{model.Number} sleep {randomSleep * 1000}");
+
                 Uri baseAddress = new Uri("https://localhost:5069");
                 using (HttpClient client = new HttpClient())
                 {
@@ -225,18 +242,22 @@ namespace ProcessThread
                     };
                 }
 
-                //Common.WriteLog(model);
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Error {model.Number}-------------------- {ex.Message} {ex.InnerException}");
+
                 //Log ex
+                _logger.LogError($"Error {model.Number}-------------------- {ex.Message} {ex.InnerException}");
             }
             finally
             {
                 model.Event.Set();
                 int availableThreads = Semaphore.Release();
                 Console.WriteLine($"                        ---> AvailableThreads:{availableThreads} || Queue:{ConcurrentQueue.Count()} || Dictiondary:{ConcurrentDictionary.Count()}");
+
+                //log
+                _logger.LogInformation($"                        ---> AvailableThreads:{availableThreads} || Queue:{ConcurrentQueue.Count()} || Dictiondary:{ConcurrentDictionary.Count()}");
             }
         }
     }
