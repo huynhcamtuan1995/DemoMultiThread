@@ -8,7 +8,7 @@ namespace ScheduleTask
 {
     public class JobSchedule
     {
-        private static readonly Semaphore ScheduleSemaphore = new Semaphore(1, 10);
+        private static readonly SemaphoreSlim ScheduleSemaphore = new SemaphoreSlim(10, 10);
         internal static Timer ScheduleTimer;
         static JobSchedule()
         {
@@ -39,34 +39,40 @@ namespace ScheduleTask
             try
             {
                 Next:
-                //select top in list (request or db) to process
-                //where some condition
-
-                List<string> listRequests = new List<string>();
-                if (listRequests.Count == 0)
                 {
-                    goto End;
+                    //select top in list (request or db) to process
+                    //where some condition
+
+                    List<string> listRequests = new List<string>();
+                    if (listRequests.Count == 0)
+                    {
+                        goto End;
+                    }
+
+                    foreach (string lead in listRequests)
+                    {
+                        // Set Stage is Inprogress
+                        //UpdateState(lead, LeadStateEnum.Inprogress);
+
+                        // Split Thread
+                        Thread thread = CreateThread(
+                            ScheduleSemaphore,
+                            () =>
+                            {
+                                ProcessTask(lead);
+                            });
+                        thread.Start();
+                    }
+
+                    //repeat 
+                    goto Next;
                 }
 
-                foreach (string lead in listRequests)
-                {
-                    // Set Stage is Inprogress
-                    //UpdateState(lead, LeadStateEnum.Inprogress);
-
-                    // Split Thread
-                    Thread thread = CreateThread(
-                        ScheduleSemaphore,
-                        () =>
-                        {
-                            ProcessTask(lead);
-                        });
-                    thread.Start();
-                }
-                //repeat 
-                goto Next;
 
                 End:
-                return;
+                {
+                    return;
+                }
             }
             catch (Exception exception)
             {
@@ -85,9 +91,9 @@ namespace ScheduleTask
         /// <param name="semaphore"></param>
         /// <param name="threadStart"></param>
         /// <returns></returns>
-        public static Thread CreateThread(Semaphore semaphore, ThreadStart threadStart)
+        public static Thread CreateThread(SemaphoreSlim semaphore, ThreadStart threadStart)
         {
-            semaphore.WaitOne();
+            semaphore.Wait();
             return new Thread(threadStart);
         }
 

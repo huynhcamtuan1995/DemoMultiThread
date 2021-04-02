@@ -15,3 +15,5 @@ ProcessThread/obj
 ScheduleTask/obj
 ProcessThread/bin
 ScheduleTask/bin
+LockingThread/obj
+LockingThread/bin
