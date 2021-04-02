@@ -51,6 +51,12 @@ namespace ProcessThread
         /// Cancellation token provide to cancel running thread
         /// </summary>
         public CancellationToken CancelToken { get; set; }
+
+        /// <summary>
+        /// For testing
+        /// Use for ThreadingController/SendMultipleRequestAsync
+        /// </summary>
+        public CountdownEvent CountEvent { get; set; }
     }
 
     /// <summary>
