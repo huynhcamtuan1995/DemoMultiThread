@@ -3,7 +3,9 @@ using Microsoft.Extensions.Logging;
 using ProcessThread;
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
+using WebThread.Validation;
 
 namespace WebThread.Controllers
 {
@@ -20,38 +22,41 @@ namespace WebThread.Controllers
             _logger = logger;
         }
 
-        [HttpGet("{thread}")]
-        public async Task<IEnumerable<bool>> SendMultipleRequestAsync(int thread)
+        [HttpGet("{numberOfThread}")]
+        public async Task<IEnumerable<bool>> SendMultipleRequestAsync(int numberOfThread)
         {
+            CountdownEvent countEvent = new CountdownEvent(numberOfThread);
             bool[] boolArr = new bool[] { };
 
-            for (int i = 0; i < thread; i++)
+            for (int i = 0; i < numberOfThread; i++)
             {
                 ThreadModel model = new ThreadModel();
                 string name = $"{Guid.NewGuid().ToString("N")}_{DateTime.Now.ToString("HHmmss")}";
                 model.Name = name;
                 model.Number = i;
+                model.CountEvent = countEvent;
 
+                //if cannot add request -> response bad request
                 if (!QueueThread.AddThreadRequest(model))
                 {
-                    ThreadResponse response = new ThreadResponse();
-                    response.Status = 400;
-                    response.Message = "Bad Request";
-
-                    return new bool[] { false };
+                    model.CountEvent.Signal();
                 }
             }
 
+            QueueThread.CoreThread.Start();
+            countEvent.Wait();
             return boolArr;
         }
 
 
         [HttpGet]
-        public async Task<ThreadResponse> SendSingleRequestAsync()
+        [ServiceFilter(typeof(ValidationQueueLimit))]
+        public async Task<ThreadResponse> SendSingleRequestAsync(CancellationToken cancelToken)
         {
             ThreadModel model = new ThreadModel();
             string name = $"{Guid.NewGuid().ToString("N")}_{DateTime.Now.ToString("HHmmss")}";
             model.Name = name;
+            model.CancelToken = cancelToken;
 
             //if cannot add request -> response bad request
             if (!QueueThread.AddThreadRequest(model))
