@@ -5,82 +5,36 @@ using System.Linq;
 using System.Net.Http;
 using System.Threading;
 using System.Timers;
-using Microsoft.Extensions.Logging;
 using Timer = System.Timers.Timer;
 
 namespace ProcessThread
 {
     public class QueueThread
     {
-        /// <summary>
-        /// Max queue size
-        /// (Load from config or database)
-        /// </summary>
-        public const int QueueSize = 5000;
-
-        /// <summary>
-        /// Main running thread
-        /// </summary>
-        public static Thread CoreThread { get; private set; }
-
-        /// <summary>
-        /// Name: DictionaryRequest
-        /// Stored Request model wait for progress
-        /// </summary>
         private static ConcurrentDictionary<string, ThreadModel> ConcurrentDictionary = new ConcurrentDictionary<string, ThreadModel>();
-
-        /// <summary>
-        /// Name: QueueRequest
-        /// Stored Request key wait for progress
-        /// </summary>
-        public static ConcurrentQueue<string> ConcurrentQueue { get; private set; } = new ConcurrentQueue<string>();
-
-        /// <summary>
-        /// Semaphore to limit threads join in progress
-        /// Keep application not out of resource
-        /// </summary>
-        private static SemaphoreSlim Semaphore = new SemaphoreSlim(50, 50);
-        //private static Semaphore Semaphore = new Semaphore(10, 10, "MySemaphore");
-
-        /// <summary>
-        /// event status to wakeup isolate running thread [StartThreads()] when QueueRequest is empty 
-        /// </summary>
+        private static ConcurrentQueue<string> ConcurrentQueue = new ConcurrentQueue<string>();
+        private static Semaphore Semaphore = new Semaphore(10, 10, "MySemaphore");
         private static AutoResetEvent QueueEvent = new AutoResetEvent(false);
 
-        /// <summary>
-        /// Timer to remove expired request
-        /// </summary>
-        internal static Timer TimerExpire;
-
-        /// <summary>
-        /// Log factory
-        /// </summary>
-        private static readonly ILoggerFactory _loggerFactory = new LoggerFactory();
-
-        /// <summary>
-        /// Logger
-        /// </summary>
-        private static readonly ILogger _logger;
+        internal static Timer TimerExpired;
 
         static QueueThread()
         {
-            _logger = _loggerFactory.CreateLogger<QueueThread>();
-
-            TimerExpireRun();
+            TimerRun();
 
             //isolate thread to run thread
-            CoreThread = new Thread(() => StartThreads());
+            new Thread(() => StartThreads()).Start();
         }
 
         /// <summary>
         /// Timer to run every 5s, to progress expired request
         /// </summary>
-        public static void TimerExpireRun()
+        public static void TimerRun()
         {
-            TimerExpire = new Timer(1000 * 5);
-            TimerExpire.Elapsed += ProcessOnRemoveExpire;
-            TimerExpire.AutoReset = true;
-            TimerExpire.Start();
+            TimerExpired = new Timer(1000 * 5);
+            TimerExpired.Elapsed += ProcessOnRemoveExpired;
+            TimerExpired.AutoReset = true;
+            TimerExpired.Start();
         }
 
         /// <summary>
@@ -88,67 +42,58 @@ namespace ProcessThread
         /// </summary>
         /// <param name="source"></param>
         /// <param name="e"></param>
-        private static void ProcessOnRemoveExpire(object source, ElapsedEventArgs e)
+        private static void ProcessOnRemoveExpired(object source, ElapsedEventArgs e)
         {
             //stop the timer to run until end of request
-            TimerExpire.Stop();
+            TimerExpired.Stop();
             try
             {
                 Next:
+                //get all expired request in Dictionary store
+                List<string> expiredRequest = ConcurrentDictionary.Values
+                    .Where(x => x.IsExpire())
+                    .OrderBy(x => x.CreateAt)
+                    .Select(x => x.Name)
+                    .ToList();
+
+                if (expiredRequest.Count() == 0)
                 {
-                    //get all expired request in Dictionary store
-                    List<string> expiredRequest = ConcurrentDictionary.Values
-                        .Where(x => x.IsExpire())
-                        .OrderBy(x => x.CreateAt)
-                        .Select(x => x.Name)
-                        .ToList();
-
-                    if (expiredRequest.Count() == 0)
-                    {
-                        goto End;
-                    }
-
-                    foreach (string modelKey in expiredRequest)
-                    {
-                        if (ConcurrentDictionary.TryRemove(modelKey, out ThreadModel model))
-                        {
-                            //set value for expire item
-                            if (model.Response == null)
-                            {
-                                //reponse stats reponse to timeout or somethign...
-                                //then set request event to continutes reponse 
-                                ThreadResponse response = new ThreadResponse();
-                                response.Status = 408;
-                                response.Message = "Timeout";
-
-                                model.Response = response;
-                            }
-
-                            //send signal to CountEvent
-                            model.CountEvent?.Signal();
-
-                            model.Event.Set();
-                        }
-                    }
-
-                    //repeat
-                    goto Next;
+                    goto End;
                 }
+
+                foreach (string modelKey in expiredRequest)
+                {
+                    if (ConcurrentDictionary.TryRemove(modelKey, out ThreadModel model))
+                    {
+                        //set value for expire item
+                        if (model.Response == null)
+                        {
+                            //reponse stats reponse to timeout or somethign...
+                            //then set request event to continutes reponse 
+                            ThreadResponse response = new ThreadResponse();
+                            response.Status = 408;
+                            response.Message = "Timeout";
+
+                            model.Response = response;
+                        }
+
+                        model.Event.Set();
+                    }
+                }
+                //repeat
+                goto Next;
 
                 End:
-                {
-                    return;
-                }
+                return;
             }
             catch (Exception ex)
             {
                 //log ex
-                _logger.LogError($"Error ------------------------------- {ex.Message} {ex.InnerException}");
             }
             finally
             {
                 //start timer after stop
-                TimerExpire.Start();
+                TimerExpired.Start();
             }
         }
 
@@ -169,14 +114,10 @@ namespace ProcessThread
                 if (ConcurrentQueue.TryDequeue(out string modelName)
                     && ConcurrentDictionary.TryRemove(modelName, out ThreadModel model))
                 {
-                    Thread t = CreateThread(
-                        Semaphore,
+                    Thread t = CreateThread(Semaphore,
                         () => ProgressAsync(model));
 
                     t.Start();
-
-                    //register cancellation to cancel running thread
-                    model.CancelToken.Register(() => t.Interrupt());
                 }
             }
 
@@ -206,9 +147,9 @@ namespace ProcessThread
         /// <param name="semaphore"></param>
         /// <param name="threadStart"></param>
         /// <returns></returns>
-        public static Thread CreateThread(SemaphoreSlim semaphore, ThreadStart threadStart)
+        public static Thread CreateThread(Semaphore semaphore, ThreadStart threadStart)
         {
-            semaphore.Wait();
+            semaphore.WaitOne();
             return new Thread(threadStart);
         }
 
@@ -241,17 +182,12 @@ namespace ProcessThread
 
                 Console.WriteLine($"{model.Number} sleep {randomSleep * 1000}");
 
-                //log
-                _logger.LogInformation($"{model.Number} sleep {randomSleep * 1000}");
-
                 Uri baseAddress = new Uri("https://localhost:5069");
                 using (HttpClient client = new HttpClient())
                 {
                     client.BaseAddress = baseAddress;
 
-                    HttpResponseMessage response = client.GetAsync($"WeatherForecast/ReceiveRequest/{randomSleep}")
-                        .GetAwaiter()
-                        .GetResult();
+                    HttpResponseMessage response = client.GetAsync($"WeatherForecast/ReceiveRequest/{randomSleep}").GetAwaiter().GetResult();
 
                     //set response
                     model.Response = new ThreadResponse()
@@ -259,27 +195,20 @@ namespace ProcessThread
                         Status = 200,
                         Message = "Have data"
                     };
-
-                    //send signal to CountEvent
-                    model.CountEvent?.Signal(); 
                 }
 
+                model.Event.Set();
+                //Common.WriteLog(model);
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error {model.Number}-------------------- {ex.Message} {ex.InnerException}");
-
+                Console.WriteLine($"Error {model.Number}-------------------- {ex.Message}");
                 //Log ex
-                _logger.LogError($"Error {model.Number}-------------------- {ex.Message} {ex.InnerException}");
             }
             finally
             {
-                model.Event.Set();
                 int availableThreads = Semaphore.Release();
                 Console.WriteLine($"                        ---> AvailableThreads:{availableThreads} || Queue:{ConcurrentQueue.Count()} || Dictiondary:{ConcurrentDictionary.Count()}");
-
-                //log
-                _logger.LogInformation($"                        ---> AvailableThreads:{availableThreads} || Queue:{ConcurrentQueue.Count()} || Dictiondary:{ConcurrentDictionary.Count()}");
             }
         }
     }

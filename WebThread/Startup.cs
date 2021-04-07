@@ -3,7 +3,6 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using WebThread.Validation;
 
 namespace WebThread
 {
@@ -20,8 +19,6 @@ namespace WebThread
         public void ConfigureServices(IServiceCollection services)
         {
             services.AddControllers();
-
-            services.AddSingleton<ValidationQueueLimit>();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.

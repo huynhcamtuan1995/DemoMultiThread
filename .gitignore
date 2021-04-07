@@ -15,6 +15,5 @@ ProcessThread/obj
 ScheduleTask/obj
 ProcessThread/bin
 ScheduleTask/bin
-WebThread/Properties/PublishProfiles
 LockingThread/bin
 LockingThread/obj
